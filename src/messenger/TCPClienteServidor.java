@@ -8,8 +8,10 @@ import java.net.UnknownHostException;
 public abstract class TCPClienteServidor {
 
     protected Socket socket;
+    TeletipoVista con;
 
-    public TCPClienteServidor(int port) {
+    public TCPClienteServidor(int port, TeletipoVista con) {
+        this.con = con;
 
         try {
             ServerSocket serverSocket = new ServerSocket(port);
@@ -25,7 +27,8 @@ public abstract class TCPClienteServidor {
         }
     }
 
-    public TCPClienteServidor(String host, int port) {
+    public TCPClienteServidor(String host, int port, TeletipoVista con) {
+        this.con = con;
 
         try {
             socket = new Socket(host, port);

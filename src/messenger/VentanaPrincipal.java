@@ -13,7 +13,7 @@ import java.awt.event.KeyEvent;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class VentanaPrincipal extends JFrame {
+public class VentanaPrincipal extends JFrame implements TeletipoVista {
 
     JTextPane textPane = new JTextPane();
     StyledDocument doc = textPane.getStyledDocument();
@@ -26,7 +26,7 @@ public class VentanaPrincipal extends JFrame {
     JMenuBar menuBar = new JMenuBar();
     DataOutputStream salida;
 
-    public VentanaPrincipal(String title, DataOutputStream salida) {
+    public VentanaPrincipal(String title) {
         this.salida = salida;
         setTitle(title);
         setSize(new Dimension(300, 500));
@@ -68,7 +68,7 @@ public class VentanaPrincipal extends JFrame {
         submitBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                sendText();
+                enviarMensaje();
             }
         });
 
@@ -76,7 +76,7 @@ public class VentanaPrincipal extends JFrame {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    sendText();
+                    enviarMensaje();
                 }
             }
         });
@@ -103,11 +103,18 @@ public class VentanaPrincipal extends JFrame {
         textField.requestFocus();
     }
 
+    public static void main(String[] args) {
+        new VentanaPrincipal("Test");
+    }
 
-    private void sendText () {
+    private void enviarMensaje() {
         String text = textField.getText();
         textField.setText(null);
+        enviar(text);
+    }
 
+    @Override
+    public void enviar(String text) {
         try {
             doc.setParagraphAttributes(doc.getLength(), doc.getLength(), userMsgStyle, false);
             doc.insertString(doc.getLength(), text + "  \n", userMsgStyle);
@@ -119,7 +126,7 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
-    public void putMessage (String text) {
+    public void recibir(String text) {
         try {
             doc.setParagraphAttributes(doc.getLength(), doc.getLength(), foreignMsgStyle, false);
             doc.insertString(doc.getLength(), "  " + text + "\n", foreignMsgStyle);
@@ -128,7 +135,8 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        new VentanaPrincipal("Test", new DataOutputStream(null));
+    @Override
+    public void setSalida(DataOutputStream dos) {
+        salida = dos;
     }
 }

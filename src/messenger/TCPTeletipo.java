@@ -9,12 +9,12 @@ public class TCPTeletipo extends TCPClienteServidor {
     DataInputStream flujoEntrada;
     DataOutputStream flujoSalida;
 
-    public TCPTeletipo(int port) {
-        super(port);
+    public TCPTeletipo(int port, TeletipoVista con) {
+        super(port, con);
     }
 
-    public TCPTeletipo(String host, int port) {
-        super(host, port);
+    public TCPTeletipo(String host, int port, TeletipoVista con) {
+        super(host, port, con);
     }
 
     @Override
@@ -22,14 +22,14 @@ public class TCPTeletipo extends TCPClienteServidor {
         try {
             flujoEntrada = new DataInputStream(socket.getInputStream());
             flujoSalida = new DataOutputStream(socket.getOutputStream());
-            VentanaPrincipal ventana = new VentanaPrincipal("Messenger", flujoSalida);
+            con.setSalida(flujoSalida);
 
             String textoEntrada;
 
             do {
 
                 textoEntrada = flujoEntrada.readUTF();
-                ventana.putMessage(textoEntrada);
+                con.recibir(textoEntrada);
 
             } while (!textoEntrada.equals("fin"));
 

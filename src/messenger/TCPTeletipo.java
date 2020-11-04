@@ -29,7 +29,6 @@ public class TCPTeletipo extends TCPClienteServidor {
             do {
 
                 textoEntrada = flujoEntrada.readUTF();
-                System.out.println(textoEntrada);
                 ventana.putMessage(textoEntrada);
 
             } while (!textoEntrada.equals("fin"));

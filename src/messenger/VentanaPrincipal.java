@@ -1,6 +1,10 @@
 package messenger;
 
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -11,10 +15,15 @@ import java.io.IOException;
 
 public class VentanaPrincipal extends JFrame {
 
-    JTextArea textArea = new JTextArea();
+    JTextPane textPane = new JTextPane();
+    StyledDocument doc = textPane.getStyledDocument();
+    SimpleAttributeSet userMsgStyle = new SimpleAttributeSet();
+    SimpleAttributeSet foreignMsgStyle = new SimpleAttributeSet();
+
     JTextField textField = new JTextField();
     JButton submitBtn = new JButton("Enviar");
     JPanel panel = new JPanel();
+    JMenuBar menuBar = new JMenuBar();
     DataOutputStream salida;
 
     public VentanaPrincipal(String title, DataOutputStream salida) {
@@ -26,7 +35,7 @@ public class VentanaPrincipal extends JFrame {
         panel.setLayout(new GridBagLayout());
         getContentPane().add(panel);
         GridBagConstraints gbc = new GridBagConstraints();
-        JScrollPane scrollPane = new JScrollPane(textArea);
+        JScrollPane scrollPane = new JScrollPane(textPane);
 
         // Area de mensajes
         gbc.gridx = 0;
@@ -37,6 +46,8 @@ public class VentanaPrincipal extends JFrame {
         gbc.weighty = 1;
         panel.add(scrollPane, gbc);
         gbc.weighty = 0; // restauro
+        textPane.setText("\n");
+        textPane.setEditable(false);
 
         // Campo de texto
         gbc.gridx = 0;
@@ -70,24 +81,54 @@ public class VentanaPrincipal extends JFrame {
             }
         });
 
+        // Barra de menu
+        JMenu conexionMenu = new JMenu("Conexión");
+        menuBar.add(conexionMenu);
+        JMenuItem conectarClienteBtn = new JMenuItem("Conectar como cliente");
+        JMenuItem conectarServidorBtn = new JMenuItem("Conectar como servidor");
+        JMenuItem desconectarBtn = new JMenuItem("Desconectar");
+        conexionMenu.add(conectarClienteBtn);
+        conexionMenu.add(conectarServidorBtn);
+        conexionMenu.add(desconectarBtn);
+
+        //setJMenuBar(menuBar);
+
+        // Estilos
+        StyleConstants.setForeground(foreignMsgStyle, new Color(0, 114, 88));
+        StyleConstants.setAlignment(foreignMsgStyle, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(userMsgStyle, Color.BLACK);
+        StyleConstants.setAlignment(userMsgStyle, StyleConstants.ALIGN_RIGHT);
+
         setVisible(true);
         textField.requestFocus();
     }
 
+
     private void sendText () {
         String text = textField.getText();
         textField.setText(null);
-        textArea.append("1: " + text + "\n");
 
         try {
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), userMsgStyle, false);
+            doc.insertString(doc.getLength(), text + "  \n", userMsgStyle);
             salida.writeUTF(text);
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
 
     public void putMessage (String text) {
-        textArea.append("2: " + text + "\n");
+        try {
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), foreignMsgStyle, false);
+            doc.insertString(doc.getLength(), "  " + text + "\n", foreignMsgStyle);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
     }
 
+    public static void main(String[] args) {
+        new VentanaPrincipal("Test", new DataOutputStream(null));
+    }
 }

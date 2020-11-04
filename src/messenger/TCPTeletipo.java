@@ -22,7 +22,7 @@ public class TCPTeletipo extends TCPClienteServidor {
         try {
             flujoEntrada = new DataInputStream(socket.getInputStream());
             flujoSalida = new DataOutputStream(socket.getOutputStream());
-            VentanaPrincipal ventana = new VentanaPrincipal("Servidor", flujoSalida);
+            VentanaPrincipal ventana = new VentanaPrincipal("Messenger", flujoSalida);
 
             String textoEntrada;
 

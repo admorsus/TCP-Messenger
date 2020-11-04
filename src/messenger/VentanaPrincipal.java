@@ -123,6 +123,8 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
             e.printStackTrace();
         } catch (BadLocationException e) {
             e.printStackTrace();
+        } catch (NullPointerException e) {
+            System.out.println("Error al enviar: conexión no establecida");
         }
     }
 

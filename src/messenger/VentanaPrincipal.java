@@ -8,7 +8,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.File;
-import java.io.IOException;
 import java.net.URLConnection;
 
 public class VentanaPrincipal extends JFrame {
@@ -76,7 +75,7 @@ public class VentanaPrincipal extends JFrame {
         submitBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                enviarMensaje();
+                enviarCampoDeTexto();
             }
         });
 
@@ -84,7 +83,7 @@ public class VentanaPrincipal extends JFrame {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    enviarMensaje();
+                    enviarCampoDeTexto();
                 }
             }
         });
@@ -118,6 +117,9 @@ public class VentanaPrincipal extends JFrame {
         textField.requestFocus();
     }
 
+    /*
+    Test purposes
+    */
     public static void main(String[] args) {
         new VentanaPrincipal("Test");
     }
@@ -126,19 +128,17 @@ public class VentanaPrincipal extends JFrame {
         this.teletipo = teletipo;
     }
 
-    private void enviarMensaje() {
+    private void enviarCampoDeTexto() {
         String text = textField.getText();
         textField.setText(null);
-        enviar(text);
+        enviarMensaje(text);
     }
 
-    public void enviar(String text) {
+    public void enviarMensaje(String text) {
         try {
             doc.setParagraphAttributes(doc.getLength(), doc.getLength(), userMsgStyle, false);
             doc.insertString(doc.getLength(), text + "  \n", userMsgStyle);
-            teletipo.getFlujoSalida().writeUTF(text);
-        } catch (IOException e) {
-            e.printStackTrace();
+            teletipo.enviarTexto(text);
         } catch (BadLocationException e) {
             e.printStackTrace();
         } catch (NullPointerException e) {
@@ -146,7 +146,7 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
-    public void recibir(String text) {
+    public void recibirMensaje(String text) {
         try {
             doc.setParagraphAttributes(doc.getLength(), doc.getLength(), otherMsgStyle, false);
             doc.insertString(doc.getLength(), "  " + text + "\n", otherMsgStyle);
@@ -160,14 +160,15 @@ public class VentanaPrincipal extends JFrame {
         int seleccion = fileChooser.showOpenDialog(fileBtn);
         if (seleccion == JFileChooser.APPROVE_OPTION) {
             File fichero = fileChooser.getSelectedFile();
-            teletipo.enviarArchivo(fichero);
+            if (esImagen(fichero.getAbsolutePath()))
+                teletipo.enviarArchivo(fichero);
+            else
+                System.err.println("Fichero no enviado: escoge un archivo de imagen");
         }
     }
 
-    public void mostrarFichero(String fileName, SimpleAttributeSet style) {
-        String mimetype = URLConnection.guessContentTypeFromName(fileName);
-        String type = mimetype.split("/")[0];
-        if (type.equals("image")) {
+    public void mostrarImagen(String fileName, SimpleAttributeSet style) {
+        if (esImagen(fileName)) {
             Style imgStyle = doc.addStyle("img", null);
             ImageIcon img = new ImageIcon(fileName);
             ImageIcon scale = escalarImagen(img);
@@ -183,26 +184,40 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
+    /*
+    Comprueba que los ficheros sean de imagen
+     */
+    private boolean esImagen(String fileName) {
+        String mimetype = URLConnection.guessContentTypeFromName(fileName);
+        if (mimetype != null) {
+            String type = mimetype.split("/")[0];
+            if (type.equals("image"))
+                return true;
+        }
+        return false;
+    }
+
+    /*
+    Escala una imagen manteniendo las proporciones
+     */
     private ImageIcon escalarImagen(ImageIcon img) {
         int width = img.getIconWidth();
         int height = img.getIconHeight();
-        int newwidth = width;
-        int newheight = height;
+        int newWidth = width;
+        int newHeight = height;
 
         if (width > height && width > 200) {
-            newwidth = 200;
-            float ratio = width / newwidth;
-            newheight = (int) (height / ratio);
+            newWidth = 200;
+            float ratio = width / newWidth;
+            newHeight = (int) (height / ratio);
         } else if (height > 200) {
-            newheight = 200;
-            float ratio = height / newheight;
-            newwidth = (int) (width / ratio);
+            newHeight = 200;
+            float ratio = height / newHeight;
+            newWidth = (int) (width / ratio);
         }
 
         Image raw = img.getImage();
-        Image newimg = raw.getScaledInstance(newwidth, newheight, Image.SCALE_SMOOTH);
+        Image newimg = raw.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
         return new ImageIcon(newimg);
     }
-
-
 }

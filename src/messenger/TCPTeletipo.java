@@ -63,7 +63,7 @@ public class TCPTeletipo {
                     recibirArchivo(flujoEntrada.readUTF());
                 } else
 
-                    vista.recibir(textoEntrada);
+                    vista.recibirMensaje(textoEntrada);
 
             } while (!textoEntrada.equals("fin"));
 
@@ -74,11 +74,19 @@ public class TCPTeletipo {
         }
     }
 
+    public void enviarTexto(String texto) {
+        try {
+            flujoSalida.writeUTF(texto);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void enviarArchivo(File fichero) {
         try {
             flujoSalida.writeUTF(marcaFichero);
             flujoSalida.writeUTF(fichero.getName());
-            vista.mostrarFichero(fichero.getAbsolutePath(), vista.userMsgStyle);
+            vista.mostrarImagen(fichero.getAbsolutePath(), vista.userMsgStyle);
             ficherosEntrada = new FileInputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
@@ -107,7 +115,7 @@ public class TCPTeletipo {
                 ficheroSalida.write(buffer, 0, numBytesLeidos);
             } while (numBytesLeidos == tamBuffer);
 
-            vista.mostrarFichero(fichero.getAbsolutePath(), vista.otherMsgStyle);
+            vista.mostrarImagen(fichero.getAbsolutePath(), vista.otherMsgStyle);
 
         } catch (IOException e) {
             e.printStackTrace();

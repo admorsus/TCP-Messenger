@@ -8,7 +8,8 @@ import java.net.UnknownHostException;
 public class TCPTeletipo {
 
     final int tamBuffer = 256;
-    final String marcaFichero = "!***file***";
+    final String marcaFichero = "!***archivo***";
+    final String marcaFin = "!***fin***";
     final String carpetaImgs = "/home/admorsus/Documentos/tcp-messenger-files/";
 
     Socket socket;
@@ -46,18 +47,18 @@ public class TCPTeletipo {
         }
     }
 
-    public void conexion() {
 
+    public void conexion() {
+        System.out.println("Conexión establecida");
         try {
             flujoEntrada = new DataInputStream(socket.getInputStream());
             flujoSalida = new DataOutputStream(socket.getOutputStream());
+
             vista.setTeletipo(this);
 
-            String textoEntrada;
+            String textoEntrada = flujoEntrada.readUTF();
 
-            do {
-
-                textoEntrada = flujoEntrada.readUTF();
+            while (!textoEntrada.equals(marcaFin)) {
 
                 if (textoEntrada.startsWith(marcaFichero)) {
                     recibirArchivo(flujoEntrada.readUTF());
@@ -65,13 +66,14 @@ public class TCPTeletipo {
 
                     vista.recibirMensaje(textoEntrada);
 
-            } while (!textoEntrada.equals("fin"));
-
+                textoEntrada = flujoEntrada.readUTF();
+            }
 
             flujoEntrada.close();
         } catch (IOException e) {
             System.err.println("Error en las comunicaciones");
         }
+        System.out.println("Conexión finalizada");
     }
 
     public void enviarTexto(String texto) {
@@ -86,7 +88,7 @@ public class TCPTeletipo {
         try {
             flujoSalida.writeUTF(marcaFichero);
             flujoSalida.writeUTF(fichero.getName());
-            vista.mostrarImagen(fichero.getAbsolutePath(), vista.userMsgStyle);
+            vista.mostrarImagen(fichero.getAbsolutePath(), vista.meMsgStyle);
             ficherosEntrada = new FileInputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
@@ -115,7 +117,7 @@ public class TCPTeletipo {
                 ficheroSalida.write(buffer, 0, numBytesLeidos);
             } while (numBytesLeidos == tamBuffer);
 
-            vista.mostrarImagen(fichero.getAbsolutePath(), vista.otherMsgStyle);
+            vista.mostrarImagen(fichero.getAbsolutePath(), vista.youMsgStyle);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -129,5 +131,4 @@ public class TCPTeletipo {
     public DataOutputStream getFlujoSalida() {
         return flujoSalida;
     }
-
 }

@@ -3,10 +3,7 @@ package messenger;
 import javax.swing.*;
 import javax.swing.text.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
+import java.awt.event.*;
 import java.io.File;
 import java.net.URLConnection;
 
@@ -16,20 +13,19 @@ public class VentanaPrincipal extends JFrame {
     StyledDocument doc = textPane.getStyledDocument();
 
     JTextField textField = new JTextField();
-    JButton submitBtn = new JButton("Enviar");
-    JButton fileBtn = new JButton("Archivo");
+    JButton btnEnviar = new JButton("Enviar");
+    JButton btnArchivo = new JButton("Archivo");
     JPanel panel = new JPanel();
     JMenuBar menuBar = new JMenuBar();
     TCPTeletipo teletipo;
 
-    SimpleAttributeSet userMsgStyle = new SimpleAttributeSet();
-    SimpleAttributeSet otherMsgStyle = new SimpleAttributeSet();
+    SimpleAttributeSet meMsgStyle = new SimpleAttributeSet();
+    SimpleAttributeSet youMsgStyle = new SimpleAttributeSet();
 
     public VentanaPrincipal(String title) {
 
         setTitle(title);
         setSize(new Dimension(300, 500));
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         panel.setLayout(new GridBagLayout());
         getContentPane().add(panel);
@@ -62,17 +58,17 @@ public class VentanaPrincipal extends JFrame {
         gbc.gridy = 2;
         gbc.gridwidth = 1;
         gbc.gridheight = 1;
-        panel.add(submitBtn, gbc);
+        panel.add(btnEnviar, gbc);
 
         // Botón de archivo
         gbc.gridx = 2;
         gbc.gridy = 2;
         gbc.gridwidth = 1;
         gbc.gridheight = 1;
-        panel.add(fileBtn, gbc);
+        panel.add(btnArchivo, gbc);
 
 
-        submitBtn.addActionListener(new ActionListener() {
+        btnEnviar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 enviarCampoDeTexto();
@@ -88,10 +84,17 @@ public class VentanaPrincipal extends JFrame {
             }
         });
 
-        fileBtn.addActionListener(new ActionListener() {
+        btnArchivo.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 escogerFicheroYEnviar();
+            }
+        });
+
+        this.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cerrarVentana();
             }
         });
 
@@ -108,10 +111,10 @@ public class VentanaPrincipal extends JFrame {
         //setJMenuBar(menuBar);
 
         // Estilos
-        StyleConstants.setForeground(otherMsgStyle, new Color(0, 114, 88));
-        StyleConstants.setAlignment(otherMsgStyle, StyleConstants.ALIGN_LEFT);
-        StyleConstants.setForeground(userMsgStyle, Color.BLACK);
-        StyleConstants.setAlignment(userMsgStyle, StyleConstants.ALIGN_RIGHT);
+        StyleConstants.setForeground(youMsgStyle, new Color(0, 114, 88));
+        StyleConstants.setAlignment(youMsgStyle, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(meMsgStyle, Color.BLACK);
+        StyleConstants.setAlignment(meMsgStyle, StyleConstants.ALIGN_RIGHT);
 
         setVisible(true);
         textField.requestFocus();
@@ -128,16 +131,22 @@ public class VentanaPrincipal extends JFrame {
         this.teletipo = teletipo;
     }
 
-    private void enviarCampoDeTexto() {
-        String text = textField.getText();
-        textField.setText(null);
-        enviarMensaje(text);
+    private boolean conectado() {
+        return (teletipo != null) && !teletipo.socket.isClosed();
     }
 
-    public void enviarMensaje(String text) {
+    private void enviarCampoDeTexto() {
+        if (conectado()) {
+            String text = textField.getText();
+            textField.setText(null);
+            enviarMensaje(text);
+        }
+    }
+
+    private void enviarMensaje(String text) {
         try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), userMsgStyle, false);
-            doc.insertString(doc.getLength(), text + "  \n", userMsgStyle);
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), meMsgStyle, false);
+            doc.insertString(doc.getLength(), text + "  \n", meMsgStyle);
             teletipo.enviarTexto(text);
         } catch (BadLocationException e) {
             e.printStackTrace();
@@ -146,24 +155,33 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 
+    private void cerrarVentana() {
+        if (conectado()) {
+            teletipo.enviarTexto(teletipo.marcaFin);
+        }
+        System.exit(0);
+    }
+
     public void recibirMensaje(String text) {
         try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), otherMsgStyle, false);
-            doc.insertString(doc.getLength(), "  " + text + "\n", otherMsgStyle);
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), youMsgStyle, false);
+            doc.insertString(doc.getLength(), "  " + text + "\n", youMsgStyle);
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
 
     private void escogerFicheroYEnviar() {
-        JFileChooser fileChooser = new JFileChooser();
-        int seleccion = fileChooser.showOpenDialog(fileBtn);
-        if (seleccion == JFileChooser.APPROVE_OPTION) {
-            File fichero = fileChooser.getSelectedFile();
-            if (esImagen(fichero.getAbsolutePath()))
-                teletipo.enviarArchivo(fichero);
-            else
-                System.err.println("Fichero no enviado: escoge un archivo de imagen");
+        if (conectado()) {
+            JFileChooser fileChooser = new JFileChooser();
+            int seleccion = fileChooser.showOpenDialog(btnArchivo);
+            if (seleccion == JFileChooser.APPROVE_OPTION) {
+                File fichero = fileChooser.getSelectedFile();
+                if (esImagen(fichero.getAbsolutePath()))
+                    teletipo.enviarArchivo(fichero);
+                else
+                    System.err.println("Fichero no enviado: escoge un archivo de imagen");
+            }
         }
     }
 

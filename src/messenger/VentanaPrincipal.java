@@ -1,36 +1,31 @@
 package messenger;
 
 import javax.swing.*;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
+import javax.swing.text.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.awt.event.*;
+import java.io.File;
+import java.net.URLConnection;
 
-public class VentanaPrincipal extends JFrame implements TeletipoVista {
+public class VentanaPrincipal extends JFrame {
 
     JTextPane textPane = new JTextPane();
     StyledDocument doc = textPane.getStyledDocument();
-    SimpleAttributeSet userMsgStyle = new SimpleAttributeSet();
-    SimpleAttributeSet foreignMsgStyle = new SimpleAttributeSet();
 
     JTextField textField = new JTextField();
-    JButton submitBtn = new JButton("Enviar");
+    JButton btnEnviar = new JButton("Enviar");
+    JButton btnArchivo = new JButton("Archivo");
     JPanel panel = new JPanel();
     JMenuBar menuBar = new JMenuBar();
-    DataOutputStream salida;
+    TCPTeletipo teletipo;
+
+    SimpleAttributeSet meMsgStyle = new SimpleAttributeSet();
+    SimpleAttributeSet youMsgStyle = new SimpleAttributeSet();
 
     public VentanaPrincipal(String title) {
-        this.salida = salida;
+
         setTitle(title);
         setSize(new Dimension(300, 500));
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         panel.setLayout(new GridBagLayout());
         getContentPane().add(panel);
@@ -40,7 +35,7 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
         // Area de mensajes
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.gridwidth = 2;
+        gbc.gridwidth = 3;
         gbc.gridheight = 2;
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weighty = 1;
@@ -63,12 +58,20 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
         gbc.gridy = 2;
         gbc.gridwidth = 1;
         gbc.gridheight = 1;
-        panel.add(submitBtn, gbc);
+        panel.add(btnEnviar, gbc);
 
-        submitBtn.addActionListener(new ActionListener() {
+        // Botón de archivo
+        gbc.gridx = 2;
+        gbc.gridy = 2;
+        gbc.gridwidth = 1;
+        gbc.gridheight = 1;
+        panel.add(btnArchivo, gbc);
+
+
+        btnEnviar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                enviarMensaje();
+                enviarCampoDeTexto();
             }
         });
 
@@ -76,8 +79,22 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    enviarMensaje();
+                    enviarCampoDeTexto();
                 }
+            }
+        });
+
+        btnArchivo.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                escogerFicheroYEnviar();
+            }
+        });
+
+        this.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cerrarVentana();
             }
         });
 
@@ -94,33 +111,43 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
         //setJMenuBar(menuBar);
 
         // Estilos
-        StyleConstants.setForeground(foreignMsgStyle, new Color(0, 114, 88));
-        StyleConstants.setAlignment(foreignMsgStyle, StyleConstants.ALIGN_LEFT);
-        StyleConstants.setForeground(userMsgStyle, Color.BLACK);
-        StyleConstants.setAlignment(userMsgStyle, StyleConstants.ALIGN_RIGHT);
+        StyleConstants.setForeground(youMsgStyle, new Color(0, 114, 88));
+        StyleConstants.setAlignment(youMsgStyle, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(meMsgStyle, Color.BLACK);
+        StyleConstants.setAlignment(meMsgStyle, StyleConstants.ALIGN_RIGHT);
 
         setVisible(true);
         textField.requestFocus();
     }
 
+    /*
+    Test purposes
+    */
     public static void main(String[] args) {
         new VentanaPrincipal("Test");
     }
 
-    private void enviarMensaje() {
-        String text = textField.getText();
-        textField.setText(null);
-        enviar(text);
+    public void setTeletipo(TCPTeletipo teletipo) {
+        this.teletipo = teletipo;
     }
 
-    @Override
-    public void enviar(String text) {
+    private boolean conectado() {
+        return (teletipo != null) && !teletipo.socket.isClosed();
+    }
+
+    private void enviarCampoDeTexto() {
+        if (conectado()) {
+            String text = textField.getText();
+            textField.setText(null);
+            enviarMensaje(text);
+        }
+    }
+
+    private void enviarMensaje(String text) {
         try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), userMsgStyle, false);
-            doc.insertString(doc.getLength(), text + "  \n", userMsgStyle);
-            salida.writeUTF(text);
-        } catch (IOException e) {
-            e.printStackTrace();
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), meMsgStyle, false);
+            doc.insertString(doc.getLength(), text + "  \n", meMsgStyle);
+            teletipo.enviarTexto(text);
         } catch (BadLocationException e) {
             e.printStackTrace();
         } catch (NullPointerException e) {
@@ -128,17 +155,87 @@ public class VentanaPrincipal extends JFrame implements TeletipoVista {
         }
     }
 
-    public void recibir(String text) {
+    private void cerrarVentana() {
+        if (conectado()) {
+            teletipo.enviarTexto(teletipo.marcaFin);
+        }
+        System.exit(0);
+    }
+
+    public void recibirMensaje(String text) {
         try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), foreignMsgStyle, false);
-            doc.insertString(doc.getLength(), "  " + text + "\n", foreignMsgStyle);
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), youMsgStyle, false);
+            doc.insertString(doc.getLength(), "  " + text + "\n", youMsgStyle);
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
     }
 
-    @Override
-    public void setSalida(DataOutputStream dos) {
-        salida = dos;
+    private void escogerFicheroYEnviar() {
+        if (conectado()) {
+            JFileChooser fileChooser = new JFileChooser();
+            int seleccion = fileChooser.showOpenDialog(btnArchivo);
+            if (seleccion == JFileChooser.APPROVE_OPTION) {
+                File fichero = fileChooser.getSelectedFile();
+                if (esImagen(fichero.getAbsolutePath()))
+                    teletipo.enviarArchivo(fichero);
+                else
+                    System.err.println("Fichero no enviado: escoge un archivo de imagen");
+            }
+        }
+    }
+
+    public void mostrarImagen(String fileName, SimpleAttributeSet style) {
+        if (esImagen(fileName)) {
+            Style imgStyle = doc.addStyle("img", null);
+            ImageIcon img = new ImageIcon(fileName);
+            ImageIcon scale = escalarImagen(img);
+            StyleConstants.setIcon(imgStyle, scale);
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), style, false);
+
+            try {
+                doc.insertString(doc.getLength(), "ignored text", imgStyle);
+                doc.insertString(doc.getLength(), "\n", style);
+            } catch (BadLocationException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /*
+    Comprueba que los ficheros sean de imagen
+     */
+    private boolean esImagen(String fileName) {
+        String mimetype = URLConnection.guessContentTypeFromName(fileName);
+        if (mimetype != null) {
+            String type = mimetype.split("/")[0];
+            if (type.equals("image"))
+                return true;
+        }
+        return false;
+    }
+
+    /*
+    Escala una imagen manteniendo las proporciones
+     */
+    private ImageIcon escalarImagen(ImageIcon img) {
+        int width = img.getIconWidth();
+        int height = img.getIconHeight();
+        int newWidth = width;
+        int newHeight = height;
+
+        if (width > height && width > 200) {
+            newWidth = 200;
+            float ratio = width / newWidth;
+            newHeight = (int) (height / ratio);
+        } else if (height > 200) {
+            newHeight = 200;
+            float ratio = height / newHeight;
+            newWidth = (int) (width / ratio);
+        }
+
+        Image raw = img.getImage();
+        Image newimg = raw.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        return new ImageIcon(newimg);
     }
 }

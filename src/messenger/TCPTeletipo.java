@@ -5,12 +5,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-public class TCPTeletipo {
+public class TCPTeletipo implements Runnable {
 
+    static String carpetaImgs = "/home/admorsus/Documentos/tcp-messenger-files";
     final int tamBuffer = 256;
     final String marcaFichero = "!***archivo***";
     final String marcaFin = "!***fin***";
-    final String carpetaImgs = "/home/admorsus/Documentos/tcp-messenger-files/";
+    int port;
+    String host;
 
     Socket socket;
     DataInputStream flujoEntrada;
@@ -22,24 +24,30 @@ public class TCPTeletipo {
     // Constructor servidor
     TCPTeletipo(int port, VentanaPrincipal vista) {
         this.vista = vista;
-        try {
-            ServerSocket serverSocket = new ServerSocket(port);
-            socket = serverSocket.accept();
-            conexion();
-            socket.close();
-        } catch (IOException e) {
-            System.err.println("Error en las comunicaciones");
-        }
-
+        this.port = port;
+        this.host = null;
     }
 
     // Constructor cliente
     public TCPTeletipo(String host, int port, VentanaPrincipal vista) {
         this.vista = vista;
+        this.port = port;
+        this.host = host;
+    }
+
+    @Override
+    public void run() {
         try {
-            socket = new Socket(host, port);
+            if (host == null) {
+                ServerSocket serverSocket = new ServerSocket(port);
+                socket = serverSocket.accept();
+            } else {
+                socket = new Socket(host, port);
+            }
+            System.out.println("Conexión establecida");
             conexion();
             socket.close();
+            System.out.println("Conexión finalizada");
         } catch (UnknownHostException e) {
             System.err.println("Referencia a host no resuelta");
         } catch (IOException e) {
@@ -48,32 +56,25 @@ public class TCPTeletipo {
     }
 
 
-    public void conexion() {
-        System.out.println("Conexión establecida");
-        try {
-            flujoEntrada = new DataInputStream(socket.getInputStream());
-            flujoSalida = new DataOutputStream(socket.getOutputStream());
+    public void conexion() throws IOException {
+        flujoEntrada = new DataInputStream(socket.getInputStream());
+        flujoSalida = new DataOutputStream(socket.getOutputStream());
 
-            vista.setTeletipo(this);
+        vista.setTeletipo(this);
 
-            String textoEntrada = flujoEntrada.readUTF();
+        String textoEntrada = flujoEntrada.readUTF();
 
-            while (!textoEntrada.equals(marcaFin)) {
+        while (!textoEntrada.equals(marcaFin)) {
 
-                if (textoEntrada.startsWith(marcaFichero)) {
-                    recibirArchivo(flujoEntrada.readUTF());
-                } else
+            if (textoEntrada.startsWith(marcaFichero)) {
+                recibirArchivo(flujoEntrada.readUTF());
+            } else
 
-                    vista.recibirMensaje(textoEntrada);
+                vista.mostrarMensaje(textoEntrada, vista.estiloRecibido);
 
-                textoEntrada = flujoEntrada.readUTF();
-            }
-
-            flujoEntrada.close();
-        } catch (IOException e) {
-            System.err.println("Error en las comunicaciones");
+            textoEntrada = flujoEntrada.readUTF();
         }
-        System.out.println("Conexión finalizada");
+        flujoEntrada.close();
     }
 
     public void enviarTexto(String texto) {
@@ -88,7 +89,6 @@ public class TCPTeletipo {
         try {
             flujoSalida.writeUTF(marcaFichero);
             flujoSalida.writeUTF(fichero.getName());
-            vista.mostrarImagen(fichero.getAbsolutePath(), vista.meMsgStyle);
             ficherosEntrada = new FileInputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
@@ -107,7 +107,7 @@ public class TCPTeletipo {
 
     private void recibirArchivo(String name) {
         try {
-            File fichero = new File(carpetaImgs + name);
+            File fichero = new File(carpetaImgs + "/" + name);
             ficheroSalida = new FileOutputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
@@ -117,7 +117,7 @@ public class TCPTeletipo {
                 ficheroSalida.write(buffer, 0, numBytesLeidos);
             } while (numBytesLeidos == tamBuffer);
 
-            vista.mostrarImagen(fichero.getAbsolutePath(), vista.youMsgStyle);
+            vista.mostrarImagen(fichero.getAbsolutePath(), vista.estiloRecibido);
 
         } catch (IOException e) {
             e.printStackTrace();

@@ -3,9 +3,12 @@ package messenger;
 import javax.swing.*;
 import javax.swing.text.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
-import java.net.URLConnection;
+import java.io.IOException;
 
 public class VentanaPrincipal extends JFrame {
 
@@ -19,8 +22,10 @@ public class VentanaPrincipal extends JFrame {
     JMenuBar menuBar = new JMenuBar();
     TCPTeletipo teletipo;
 
-    SimpleAttributeSet meMsgStyle = new SimpleAttributeSet();
-    SimpleAttributeSet youMsgStyle = new SimpleAttributeSet();
+    int puerto = 8000;
+
+    SimpleAttributeSet estiloEnviado = new SimpleAttributeSet();
+    SimpleAttributeSet estiloRecibido = new SimpleAttributeSet();
 
     public VentanaPrincipal(String title) {
 
@@ -68,12 +73,7 @@ public class VentanaPrincipal extends JFrame {
         panel.add(btnArchivo, gbc);
 
 
-        btnEnviar.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                enviarCampoDeTexto();
-            }
-        });
+        btnEnviar.addActionListener(e -> enviarCampoDeTexto());
 
         textField.addKeyListener(new KeyAdapter() {
             @Override
@@ -84,12 +84,7 @@ public class VentanaPrincipal extends JFrame {
             }
         });
 
-        btnArchivo.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                escogerFicheroYEnviar();
-            }
-        });
+        btnArchivo.addActionListener(e -> escogeryEnviarFichero());
 
         this.addWindowListener(new WindowAdapter() {
             @Override
@@ -101,30 +96,99 @@ public class VentanaPrincipal extends JFrame {
         // Barra de menu
         JMenu conexionMenu = new JMenu("Conexión");
         menuBar.add(conexionMenu);
-        JMenuItem conectarClienteBtn = new JMenuItem("Conectar como cliente");
-        JMenuItem conectarServidorBtn = new JMenuItem("Conectar como servidor");
-        JMenuItem desconectarBtn = new JMenuItem("Desconectar");
-        conexionMenu.add(conectarClienteBtn);
+        JMenuItem conectarServidorBtn = new JMenuItem("Servir");
+        conectarServidorBtn.addActionListener(e -> {
+            teletipo = new TCPTeletipo(puerto, VentanaPrincipal.this);
+            new Thread(teletipo).start();
+        });
         conexionMenu.add(conectarServidorBtn);
+        JMenuItem conectarClienteBtn = new JMenuItem("Conectar...");
+        conectarClienteBtn.addActionListener(e -> {
+            String host = JOptionPane.showInputDialog("Conectarse a la IP:");
+            teletipo = new TCPTeletipo(host, puerto, VentanaPrincipal.this);
+            new Thread(teletipo).start();
+        });
+        conexionMenu.add(conectarClienteBtn);
+        conexionMenu.addSeparator();
+        JMenuItem puertoBtn = new JMenuItem("Elegir puerto");
+        puertoBtn.addActionListener(e -> puerto = Integer.valueOf(JOptionPane.showInputDialog("Conectarse a través del puerto:")));
+        conexionMenu.add(puertoBtn);
+        conexionMenu.addSeparator();
+        JMenuItem desconectarBtn = new JMenuItem("Desconectar");
         conexionMenu.add(desconectarBtn);
 
-        //setJMenuBar(menuBar);
+        JMenu archivosMenu = new JMenu("Archivos");
+        menuBar.add(archivosMenu);
+        JMenuItem itemEnviarArchivo = new JMenuItem("Enviar archivo");
+        itemEnviarArchivo.addActionListener(e -> escogeryEnviarFichero());
+        archivosMenu.add(itemEnviarArchivo);
+        archivosMenu.addSeparator();
+        JMenuItem itemMostrarCarpeta = new JMenuItem("Abrir carpeta");
+        itemMostrarCarpeta.addActionListener(e -> {
+            try {
+                Desktop.getDesktop().open(new File(teletipo.carpetaImgs));
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+        });
+        archivosMenu.add(itemMostrarCarpeta);
+        JMenuItem itemElegirCarpeta = new JMenuItem("Elegir carpeta");
+        itemElegirCarpeta.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            fileChooser.setAcceptAllFileFilterUsed(false);
+            int seleccion = fileChooser.showOpenDialog(btnArchivo);
+            if (seleccion == JFileChooser.APPROVE_OPTION) {
+                File carpeta = fileChooser.getSelectedFile();
+                teletipo.carpetaImgs = carpeta.getAbsolutePath();
+            }
+        });
+        archivosMenu.add(itemElegirCarpeta);
+
+        setJMenuBar(menuBar);
 
         // Estilos
-        StyleConstants.setForeground(youMsgStyle, new Color(0, 114, 88));
-        StyleConstants.setAlignment(youMsgStyle, StyleConstants.ALIGN_LEFT);
-        StyleConstants.setForeground(meMsgStyle, Color.BLACK);
-        StyleConstants.setAlignment(meMsgStyle, StyleConstants.ALIGN_RIGHT);
+        StyleConstants.setForeground(estiloRecibido, new Color(0, 114, 88));
+        StyleConstants.setAlignment(estiloRecibido, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(estiloEnviado, Color.BLACK);
+        StyleConstants.setAlignment(estiloEnviado, StyleConstants.ALIGN_RIGHT);
 
         setVisible(true);
         textField.requestFocus();
     }
 
-    /*
-    Test purposes
-    */
+
     public static void main(String[] args) {
         new VentanaPrincipal("Test");
+        new VentanaPrincipal("Test2");
+    }
+
+
+    public void mostrarMensaje(String texto, SimpleAttributeSet estilo) {
+        try {
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), estilo, false);
+            doc.insertString(doc.getLength(), "  " + texto + "  \n", estilo);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public void mostrarImagen(String filename, SimpleAttributeSet estilo) {
+        if (ImagenUtiles.esImagen(filename)) {
+            Style imgStyle = doc.addStyle("img", null);
+            ImageIcon img = new ImageIcon(filename);
+            ImageIcon scale = ImagenUtiles.escalarImagen(img);
+            StyleConstants.setIcon(imgStyle, scale);
+            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), estilo, false);
+
+            try {
+                doc.insertString(doc.getLength(), "ignored text", imgStyle);
+                doc.insertString(doc.getLength(), "\n", estilo);
+            } catch (BadLocationException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void setTeletipo(TCPTeletipo teletipo) {
@@ -135,23 +199,28 @@ public class VentanaPrincipal extends JFrame {
         return (teletipo != null) && !teletipo.socket.isClosed();
     }
 
-    private void enviarCampoDeTexto() {
+    public void enviarCampoDeTexto() {
         if (conectado()) {
-            String text = textField.getText();
+            String texto = textField.getText();
             textField.setText(null);
-            enviarMensaje(text);
+            mostrarMensaje(texto, estiloEnviado);
+            teletipo.enviarTexto(texto);
         }
     }
 
-    private void enviarMensaje(String text) {
-        try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), meMsgStyle, false);
-            doc.insertString(doc.getLength(), text + "  \n", meMsgStyle);
-            teletipo.enviarTexto(text);
-        } catch (BadLocationException e) {
-            e.printStackTrace();
-        } catch (NullPointerException e) {
-            System.out.println("Error al enviar: conexión no establecida");
+    private void escogeryEnviarFichero() {
+        if (conectado()) {
+            JFileChooser fileChooser = new JFileChooser();
+            int seleccion = fileChooser.showOpenDialog(btnArchivo);
+            if (seleccion == JFileChooser.APPROVE_OPTION) {
+                File fichero = fileChooser.getSelectedFile();
+                if (ImagenUtiles.esImagen(fichero.getAbsolutePath())) {
+                    mostrarImagen(fichero.getAbsolutePath(), estiloEnviado);
+                    teletipo.enviarArchivo(fichero);
+                } else {
+                    System.err.println("Fichero no enviado: escoge un archivo de imagen");
+                }
+            }
         }
     }
 
@@ -162,80 +231,5 @@ public class VentanaPrincipal extends JFrame {
         System.exit(0);
     }
 
-    public void recibirMensaje(String text) {
-        try {
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), youMsgStyle, false);
-            doc.insertString(doc.getLength(), "  " + text + "\n", youMsgStyle);
-        } catch (BadLocationException e) {
-            e.printStackTrace();
-        }
-    }
 
-    private void escogerFicheroYEnviar() {
-        if (conectado()) {
-            JFileChooser fileChooser = new JFileChooser();
-            int seleccion = fileChooser.showOpenDialog(btnArchivo);
-            if (seleccion == JFileChooser.APPROVE_OPTION) {
-                File fichero = fileChooser.getSelectedFile();
-                if (esImagen(fichero.getAbsolutePath()))
-                    teletipo.enviarArchivo(fichero);
-                else
-                    System.err.println("Fichero no enviado: escoge un archivo de imagen");
-            }
-        }
-    }
-
-    public void mostrarImagen(String fileName, SimpleAttributeSet style) {
-        if (esImagen(fileName)) {
-            Style imgStyle = doc.addStyle("img", null);
-            ImageIcon img = new ImageIcon(fileName);
-            ImageIcon scale = escalarImagen(img);
-            StyleConstants.setIcon(imgStyle, scale);
-            doc.setParagraphAttributes(doc.getLength(), doc.getLength(), style, false);
-
-            try {
-                doc.insertString(doc.getLength(), "ignored text", imgStyle);
-                doc.insertString(doc.getLength(), "\n", style);
-            } catch (BadLocationException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /*
-    Comprueba que los ficheros sean de imagen
-     */
-    private boolean esImagen(String fileName) {
-        String mimetype = URLConnection.guessContentTypeFromName(fileName);
-        if (mimetype != null) {
-            String type = mimetype.split("/")[0];
-            if (type.equals("image"))
-                return true;
-        }
-        return false;
-    }
-
-    /*
-    Escala una imagen manteniendo las proporciones
-     */
-    private ImageIcon escalarImagen(ImageIcon img) {
-        int width = img.getIconWidth();
-        int height = img.getIconHeight();
-        int newWidth = width;
-        int newHeight = height;
-
-        if (width > height && width > 200) {
-            newWidth = 200;
-            float ratio = width / newWidth;
-            newHeight = (int) (height / ratio);
-        } else if (height > 200) {
-            newHeight = 200;
-            float ratio = height / newHeight;
-            newWidth = (int) (width / ratio);
-        }
-
-        Image raw = img.getImage();
-        Image newimg = raw.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
-        return new ImageIcon(newimg);
-    }
 }

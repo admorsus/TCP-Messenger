@@ -5,56 +5,39 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-public class TCPTeletipo implements Runnable {
+public class Teletipo {
 
-    static String carpetaImgs = "/home/admorsus/Documentos/tcp-messenger-files";
     final int tamBuffer = 256;
     final String marcaFichero = "!***archivo***";
     final String marcaFin = "!***fin***";
-    int port;
-    String host;
+
+    int puerto = 8000;
+    String host = null;
+    String carpeta = "/home/admorsus/Documentos/tcp-messenger-files";
 
     Socket socket;
     DataInputStream flujoEntrada;
     DataOutputStream flujoSalida;
-    FileInputStream ficherosEntrada;
-    FileOutputStream ficheroSalida;
     VentanaPrincipal vista;
+    boolean conectado = false;
 
-    // Constructor servidor
-    TCPTeletipo(int port, VentanaPrincipal vista) {
+    Teletipo(VentanaPrincipal vista) {
         this.vista = vista;
-        this.port = port;
-        this.host = null;
     }
 
-    // Constructor cliente
-    public TCPTeletipo(String host, int port, VentanaPrincipal vista) {
-        this.vista = vista;
-        this.port = port;
+    public void setPuerto(int puerto) {
+        this.puerto = puerto;
+    }
+
+    public void iniciarServidor() {
+        host = null;
+        new Thread(new HiloEntrada()).start();
+    }
+
+    public void iniciarCliente(String host) {
         this.host = host;
+        new Thread(new HiloEntrada()).start();
     }
-
-    @Override
-    public void run() {
-        try {
-            if (host == null) {
-                ServerSocket serverSocket = new ServerSocket(port);
-                socket = serverSocket.accept();
-            } else {
-                socket = new Socket(host, port);
-            }
-            System.out.println("Conexión establecida");
-            conexion();
-            socket.close();
-            System.out.println("Conexión finalizada");
-        } catch (UnknownHostException e) {
-            System.err.println("Referencia a host no resuelta");
-        } catch (IOException e) {
-            System.err.println("Error en las comunicaciones");
-        }
-    }
-
 
     public void conexion() throws IOException {
         flujoEntrada = new DataInputStream(socket.getInputStream());
@@ -64,7 +47,7 @@ public class TCPTeletipo implements Runnable {
 
         String textoEntrada = flujoEntrada.readUTF();
 
-        while (!textoEntrada.equals(marcaFin)) {
+        while (conectado && !textoEntrada.equals(marcaFin)) {
 
             if (textoEntrada.startsWith(marcaFichero)) {
                 recibirArchivo(flujoEntrada.readUTF());
@@ -75,6 +58,11 @@ public class TCPTeletipo implements Runnable {
             textoEntrada = flujoEntrada.readUTF();
         }
         flujoEntrada.close();
+    }
+
+    public void desconectar() {
+        enviarTexto(marcaFin);
+        conectado = false;
     }
 
     public void enviarTexto(String texto) {
@@ -89,7 +77,7 @@ public class TCPTeletipo implements Runnable {
         try {
             flujoSalida.writeUTF(marcaFichero);
             flujoSalida.writeUTF(fichero.getName());
-            ficherosEntrada = new FileInputStream(fichero);
+            FileInputStream ficherosEntrada = new FileInputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
 
@@ -107,8 +95,8 @@ public class TCPTeletipo implements Runnable {
 
     private void recibirArchivo(String name) {
         try {
-            File fichero = new File(carpetaImgs + "/" + name);
-            ficheroSalida = new FileOutputStream(fichero);
+            File fichero = new File(carpeta + "/" + name);
+            FileOutputStream ficheroSalida = new FileOutputStream(fichero);
             byte buffer[] = new byte[tamBuffer];
             int numBytesLeidos;
 
@@ -124,11 +112,28 @@ public class TCPTeletipo implements Runnable {
         }
     }
 
-    public DataInputStream getFlujoEntrada() {
-        return flujoEntrada;
-    }
+    class HiloEntrada implements Runnable {
 
-    public DataOutputStream getFlujoSalida() {
-        return flujoSalida;
+        @Override
+        public void run() {
+            try {
+                if (host == null) {
+                    ServerSocket serverSocket = new ServerSocket(puerto);
+                    socket = serverSocket.accept();
+                } else {
+                    socket = new Socket(host, puerto);
+                }
+
+                System.out.println("Conexión establecida");
+                conectado = true;
+                conexion();
+                socket.close();
+                System.out.println("Conexión finalizada");
+            } catch (UnknownHostException e) {
+                // TODO: mostrar msgbox
+            } catch (IOException e) {
+                System.err.println("Error en las comunicaciones");
+            }
+        }
     }
 }

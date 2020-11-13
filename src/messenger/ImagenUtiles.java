@@ -5,6 +5,7 @@ import java.awt.*;
 import java.net.URLConnection;
 
 public class ImagenUtiles {
+
     /*
     Comprueba que el fichero sea de imagen
     */
